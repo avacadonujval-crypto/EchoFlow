@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "echoflow",
+  "public": true,
+  "builds": [{ "src": "website/**", "use": "@vercel/static" }],
+  "routes": [
+    { "src": "/downloads/(.*)", "headers": { "Content-Disposition": "attachment" } },
+    { "src": "/(.*)", "dest": "/website/$1" }
+  ]
+}

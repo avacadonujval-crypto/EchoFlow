@@ -1,0 +1,22 @@
+# EchoFlow download site — static hosting (Netlify, Vercel, GitHub Pages)
+[build]
+  publish = "website"
+  command = "echo Static site — installer staged separately via build:release"
+
+[[headers]]
+  for = "/downloads/*.exe"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Content-Disposition = "attachment; filename=\"EchoFlow-Setup-1.0.0.exe\""
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"

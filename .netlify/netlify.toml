@@ -1,0 +1,48 @@
+headersOrigin = "config"
+plugins = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "C:\\Users\\Ujval\\OneDrive\\Desktop\\EchoFlow\\website"
+publishOrigin = "config"
+commandOrigin = "config"
+command = "echo Static site — installer staged separately via build:release"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[headers]]
+for = "/downloads/*.exe"
+
+[headers.values]
+Content-Type = "application/octet-stream"
+Content-Disposition = "attachment; filename=\"EchoFlow-Setup-1.0.0.exe\""
+Cache-Control = "public, max-age=3600"
+
+[[headers]]
+for = "/*.js"
+
+[headers.values]
+Cache-Control = "public, max-age=3600"
+
+[[headers]]
+for = "/"
+
+[headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"

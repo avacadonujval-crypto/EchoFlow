@@ -1,0 +1,69 @@
+name: Release & Deploy Website
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx vite build
+      - run: npx electron-builder --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage installer for website
+        run: node scripts/stage-website.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: echoflow-windows
+          path: |
+            release/*.exe
+            website/downloads/*
+
+  deploy-website:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: echoflow-windows
+          path: artifact
+
+      - name: Prepare site
+        run: |
+          mkdir -p website/downloads
+          cp -r artifact/website/downloads/* website/downloads/ 2>/dev/null || cp artifact/*.exe website/downloads/ 2>/dev/null || true
+          cp privacy-policy.html website/privacy.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
