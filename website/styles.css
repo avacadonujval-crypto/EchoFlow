@@ -1,17 +1,17 @@
 :root {
   --bg: #ffffff;
-  --bg-soft: #f5f5f7;
-  --bg-alt: #fafafa;
-  --text: #1d1d1f;
-  --text-muted: #6e6e73;
-  --accent: #c8622a;
-  --accent-light: #e07b3c;
-  --accent-glow: rgba(200, 98, 42, 0.18);
-  --line: rgba(0, 0, 0, 0.07);
-  --line-strong: rgba(0, 0, 0, 0.12);
+  --bg-soft: #f4f4f4;
+  --bg-alt: #ffffff;
+  --text: #000000;
+  --text-muted: rgba(0, 0, 0, 0.5);
+  --accent: #000000;
+  --accent-light: rgba(0, 0, 0, 0.5);
+  --accent-glow: rgba(0, 0, 0, 0.1);
+  --line: rgba(0, 0, 0, 0.1);
+  --line-strong: rgba(0, 0, 0, 0.18);
   --radius: 16px;
   --radius-lg: 24px;
-  --radius-pill: 980px;
+  --radius-pill: 16px;
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue',
     Helvetica, Arial, sans-serif;
   --header-h: 56px;
@@ -45,13 +45,13 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--text);
   text-decoration: none;
   transition: color 0.2s var(--ease);
 }
 
 a:hover {
-  color: var(--text);
+  color: var(--text-muted);
 }
 
 /* ── Full-viewport sections ── */
@@ -88,7 +88,7 @@ a:hover {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(200, 98, 42, 0.04), transparent 70%);
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0, 0, 0, 0.03), transparent 70%);
   pointer-events: none;
 }
 
@@ -96,10 +96,10 @@ a:hover {
   display: inline-block;
   margin: 0 0 12px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 /* ── Header ── */
@@ -189,7 +189,7 @@ main {
   top: -10%;
   left: 50%;
   transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(200, 98, 42, 0.15), transparent 70%);
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.06), transparent 70%);
 }
 
 .hero-orb-2 {
@@ -247,10 +247,7 @@ h1 {
 }
 
 .hero-accent {
-  background: linear-gradient(135deg, var(--text) 30%, var(--accent) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 
 h2 {
@@ -333,7 +330,7 @@ kbd {
 .voice-wave span {
   width: 4px;
   border-radius: 4px;
-  background: linear-gradient(180deg, var(--accent-light), var(--accent));
+  background: #000000;
   animation: waveBar 1.2s ease-in-out infinite;
 }
 
@@ -671,7 +668,7 @@ kbd {
 .card:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.07);
-  border-color: rgba(200, 98, 42, 0.25);
+  border-color: rgba(0, 0, 0, 0.22);
 }
 
 .card-icon {
@@ -780,8 +777,8 @@ kbd {
   padding-top: 12px;
   border-top: 1px solid var(--line);
   font-size: 0.75rem;
-  color: var(--accent);
-  font-weight: 700;
+  color: var(--text-muted);
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
