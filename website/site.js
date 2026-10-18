@@ -12,9 +12,10 @@
   const downloadBtn = document.getElementById('download-btn')
   const headerCta = document.querySelector('.header-cta')
 
+  const INSTALLER_HOST = 'https://avacadonujval-crypto.github.io/EchoFlow'
   let VERSION = '1.0.0'
   let INSTALLER = `EchoFlow-Setup-${VERSION}.exe`
-  let installerPath = `downloads/${INSTALLER}`
+  let installerPath = `${INSTALLER_HOST}/downloads/${INSTALLER}`
   let listedSize = ''
 
   function detectPlatform() {
@@ -45,18 +46,23 @@
 
   async function loadManifest() {
     try {
-      const res = await fetch('downloads/manifest.json')
+      const res = await fetch(`${INSTALLER_HOST}/downloads/manifest.json`)
       if (res.ok) {
         const m = await res.json()
         if (m.version) VERSION = m.version
         if (m.file) INSTALLER = m.file
         if (m.sizeBytes) listedSize = `${Math.round(m.sizeBytes / (1024 * 1024))} MB`
+        if (m.url) {
+          installerPath = m.url
+          if (versionEl) versionEl.textContent = `v${VERSION} · Windows`
+          return installerPath
+        }
       }
     } catch {
       // use defaults
     }
     if (versionEl) versionEl.textContent = `v${VERSION} · Windows`
-    installerPath = `downloads/${INSTALLER}`
+    installerPath = `${INSTALLER_HOST}/downloads/${INSTALLER}`
     return installerPath
   }
 
@@ -64,22 +70,18 @@
     return `${window.location.origin}${window.location.pathname}#download`
   }
 
-  function applyInstallerLink(sizeText, ready) {
-    if (!link) return
-    if (ready) {
+  function applyInstallerLink(sizeText) {
+    if (link) {
       link.href = installerPath
-      link.setAttribute('download', INSTALLER)
-      if (status) {
-        status.textContent = 'Windows 10 and 11'
-        status.style.color = ''
-      }
-    } else {
-      link.href = installerPath
-      link.setAttribute('download', INSTALLER)
-      if (status) {
-        status.textContent = 'Windows 10 and 11'
-        status.style.color = ''
-      }
+      link.removeAttribute('download')
+    }
+    if (headerCta && document.body.classList.contains('download-page')) {
+      headerCta.href = installerPath
+      headerCta.removeAttribute('download')
+    }
+    if (status) {
+      status.textContent = 'Windows 10 and 11'
+      status.style.color = ''
     }
     if (sizeText && sizeEl) sizeEl.textContent = sizeText
   }
@@ -133,7 +135,7 @@
       ready = false
     }
 
-    applyInstallerLink(sizeText || listedSize, ready)
+    applyInstallerLink(sizeText || listedSize)
   }
 
   async function copyPageLink() {
