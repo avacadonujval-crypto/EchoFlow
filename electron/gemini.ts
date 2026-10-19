@@ -145,6 +145,9 @@ async function generateWithFallback(
 ): Promise<string> {
   const keys = apiKeyOverride ? [apiKeyOverride, ...getGeminiApiKeys()] : getGeminiApiKeys()
   const uniqueKeys = Array.from(new Set(keys.filter(Boolean)))
+  if (!uniqueKeys.length) {
+    throw new Error('Speech is not set up on this install. Reinstall EchoFlow from the website.')
+  }
   const errors: string[] = []
 
   for (const key of uniqueKeys) {

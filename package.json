@@ -51,6 +51,12 @@
       "dist-electron/**/*",
       "privacy-policy.html"
     ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
     "win": {
       "target": [
         {

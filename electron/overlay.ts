@@ -61,15 +61,47 @@ export function createOverlayWindow(): BrowserWindow {
   return overlayWindow
 }
 
+let dismissTimer: ReturnType<typeof setTimeout> | null = null
+
 export function showOverlay(): void {
+  if (dismissTimer) {
+    clearTimeout(dismissTimer)
+    dismissTimer = null
+  }
   const win = createOverlayWindow()
   if (!win.isVisible()) win.showInactive()
 }
 
 export function hideOverlay(): void {
+  if (dismissTimer) {
+    clearTimeout(dismissTimer)
+    dismissTimer = null
+  }
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.hide()
   }
+}
+
+/** Animate the listening mark out, then hide the window. */
+export function dismissOverlay(): void {
+  if (!overlayWindow || overlayWindow.isDestroyed() || !overlayWindow.isVisible()) {
+    return
+  }
+  if (dismissTimer) {
+    clearTimeout(dismissTimer)
+    dismissTimer = null
+  }
+  overlayWindow.webContents.send('overlay:state', {
+    listening: false,
+    processing: false,
+    transcript: '',
+    status: '',
+    dismissing: true,
+  })
+  dismissTimer = setTimeout(() => {
+    dismissTimer = null
+    hideOverlay()
+  }, 340)
 }
 
 export function sendOverlayState(state: {
@@ -77,6 +109,7 @@ export function sendOverlayState(state: {
   processing: boolean
   transcript: string
   status: string
+  dismissing?: boolean
 }): void {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send('overlay:state', state)

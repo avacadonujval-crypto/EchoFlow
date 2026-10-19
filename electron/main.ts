@@ -56,6 +56,8 @@ function loadEnvFile(): void {
   const candidates = [
     path.join(process.cwd(), '.env'),
     path.join(app.getAppPath(), '.env'),
+    // Packaged installs: electron-builder extraResources → resources/.env
+    path.join(process.resourcesPath, '.env'),
     path.join(path.dirname(app.getPath('exe')), '.env'),
   ]
   for (const file of candidates) {

@@ -23,7 +23,7 @@ import {
   startNativeCapture,
   stopNativeCapture,
 } from './micCapture'
-import { hideOverlay, sendOverlayState, showOverlay } from './overlay'
+import { dismissOverlay, hideOverlay, sendOverlayState, showOverlay } from './overlay'
 import { PTT_LABEL } from './hotkeys'
 import { polishTranscript } from './transcriptPolish'
 import { isNonLatinScript } from './languages'
@@ -119,10 +119,30 @@ function noteWordLimit(): void {
   }).show()
 }
 
+function noteSpeechSetup(): void {
+  if (!Notification.isSupported()) return
+  new Notification({
+    title: 'EchoFlow',
+    body: 'Speech is not set up on this install. Reinstall EchoFlow from the website.',
+  }).show()
+}
+
+function noteNoAudio(): void {
+  if (!Notification.isSupported()) return
+  new Notification({
+    title: 'EchoFlow',
+    body: 'No microphone audio captured. Check your mic and try again.',
+  }).show()
+}
+
 export async function beginListening(): Promise<void> {
   if (listening || handling) return
   if (!speechOpen(spokenWordTotal(), getMembership().plan)) {
     noteWordLimit()
+    return
+  }
+  if (!hasGeminiApiKey()) {
+    noteSpeechSetup()
     return
   }
   listening = true
@@ -150,13 +170,7 @@ export async function beginListening(): Promise<void> {
 export async function endListening(): Promise<void> {
   if (!listening) return
   listening = false
-
-  sendOverlayState({
-    listening: false,
-    processing: true,
-    transcript: '',
-    status: 'Transcribing…',
-  })
+  dismissOverlay()
 
   let payload: { base64: string; mimeType: string }
   if (nativeActive) {
@@ -171,42 +185,34 @@ export async function endListening(): Promise<void> {
   const { base64, mimeType } = payload
   let transcript = ''
 
-  if (base64) {
-    try {
-      // Gemini STT with cleanup baked into the same call (single round-trip)
-      const settings = getSettings()
-      const speechLanguage = settings.speechLanguage ?? 'auto'
-      const sttStart = Date.now()
-      transcript = await transcribeAudio(
-        base64,
-        mimeType || 'audio/wav',
-        speechLanguage,
-      )
-      transcript = polishTranscript(transcript)
-      console.log(
-        `[voice] stt ${Date.now() - sttStart}ms →`,
-        JSON.stringify(transcript.slice(0, 80)),
-      )
+  if (!base64) {
+    noteNoAudio()
+    notifyHub('session:result', { transcript: '', error: 'No microphone audio captured' })
+    return
+  }
 
-      if (transcript) {
-        sendOverlayState({
-          listening: false,
-          processing: true,
-          transcript,
-          status: 'Matching…',
-        })
-      }
-    } catch (err) {
-      const message = publicError(err, 'Transcription failed')
-      sendOverlayState({
-        listening: false,
-        processing: false,
-        transcript: '',
-        status: message,
-      })
-      setTimeout(() => hideOverlay(), 2200)
-      return
+  try {
+    // Gemini STT with cleanup baked into the same call (single round-trip)
+    const settings = getSettings()
+    const speechLanguage = settings.speechLanguage ?? 'auto'
+    const sttStart = Date.now()
+    transcript = await transcribeAudio(
+      base64,
+      mimeType || 'audio/wav',
+      speechLanguage,
+    )
+    transcript = polishTranscript(transcript)
+    console.log(
+      `[voice] stt ${Date.now() - sttStart}ms →`,
+      JSON.stringify(transcript.slice(0, 80)),
+    )
+  } catch (err) {
+    const message = publicError(err, 'Transcription failed')
+    if (Notification.isSupported()) {
+      new Notification({ title: 'EchoFlow', body: message }).show()
     }
+    notifyHub('session:result', { transcript: '', error: message })
+    return
   }
 
   await handleTranscript(transcript)
@@ -242,13 +248,6 @@ async function resolveAction(transcript: string): Promise<ParsedAction> {
     }
   }
 
-  sendOverlayState({
-    listening: false,
-    processing: true,
-    transcript,
-    status: 'Understanding command…',
-  })
-
   return classifyWithGemini(
     getGeminiApiKey(),
     transcript,
@@ -267,22 +266,8 @@ export async function handleTranscript(transcript: string): Promise<void> {
   try {
     const trimmed = transcript.trim()
     if (!trimmed) {
-      sendOverlayState({
-        listening: false,
-        processing: false,
-        transcript: '',
-        status: 'No speech detected — hold Ctrl+Alt and speak',
-      })
-      setTimeout(() => hideOverlay(), 1800)
       return
     }
-
-    sendOverlayState({
-      listening: false,
-      processing: true,
-      transcript: trimmed,
-      status: 'Matching command…',
-    })
 
     try {
       let action: ParsedAction
@@ -313,12 +298,6 @@ export async function handleTranscript(transcript: string): Promise<void> {
           const prepared = prepareWebAction(merged)
           if (prepared.missing.length && prepared.question) {
             startClarify(prepared.ready, prepared.missing, prepared.question)
-            sendOverlayState({
-              listening: false,
-              processing: false,
-              transcript: trimmed,
-              status: prepared.question,
-            })
             notifyHub('session:result', {
               transcript: trimmed,
               action: {
@@ -329,7 +308,12 @@ export async function handleTranscript(transcript: string): Promise<void> {
               },
               result: { success: true, message: prepared.question },
             })
-            setTimeout(() => hideOverlay(), 2200)
+            if (Notification.isSupported()) {
+              new Notification({
+                title: 'EchoFlow needs a detail',
+                body: prepared.question.slice(0, 180),
+              }).show()
+            }
             return
           }
           action = prepared.ready
@@ -355,12 +339,6 @@ export async function handleTranscript(transcript: string): Promise<void> {
         const prepared = prepareWebAction(action)
         if (prepared.missing.length && prepared.question) {
           startClarify(prepared.ready, prepared.missing, prepared.question)
-          sendOverlayState({
-            listening: false,
-            processing: false,
-            transcript: trimmed,
-            status: prepared.question.split('\n')[0],
-          })
           notifyHub('session:result', {
             transcript: trimmed,
             action: {
@@ -377,7 +355,6 @@ export async function handleTranscript(transcript: string): Promise<void> {
               body: prepared.question.slice(0, 180),
             }).show()
           }
-          setTimeout(() => hideOverlay(), 2200)
           return
         }
         action = prepared.ready
@@ -404,23 +381,18 @@ export async function handleTranscript(transcript: string): Promise<void> {
           action,
           result: { success: true, message: q },
         })
-        sendOverlayState({
-          listening: false,
-          processing: false,
-          transcript: trimmed,
-          status: q,
-        })
-        setTimeout(() => hideOverlay(), 2200)
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'EchoFlow needs a detail',
+            body: q.slice(0, 180),
+          }).show()
+        }
         return
       }
 
       action = applySendItToAction(action, trimmed)
 
       const settings = getSettings()
-
-      hideOverlay()
-      await new Promise((r) => setTimeout(r, 120))
-
       const result = await executeAction(action, { autoPaste: settings.autoPaste })
       if (loggedToChat || action.action === 'reply' || action.action === 'send_email') {
         if (!loggedToChat) pushUserMessage(trimmed)
@@ -448,26 +420,13 @@ export async function handleTranscript(transcript: string): Promise<void> {
           }).show()
         }
       }
-
-      showOverlay()
-      sendOverlayState({
-        listening: false,
-        processing: false,
-        transcript: trimmed,
-        status: result.message,
-      })
-      setTimeout(() => hideOverlay(), 1800)
     } catch (err) {
       const message = publicError(err, 'Something went wrong')
       pushSystemMessage(message)
-      sendOverlayState({
-        listening: false,
-        processing: false,
-        transcript: trimmed,
-        status: message,
-      })
       notifyHub('session:result', { transcript: trimmed, error: message })
-      setTimeout(() => hideOverlay(), 2200)
+      if (Notification.isSupported()) {
+        new Notification({ title: 'EchoFlow', body: message }).show()
+      }
     }
   } finally {
     handling = false

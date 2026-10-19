@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react'
 
 export function OverlayPage() {
   const [listening, setListening] = useState(false)
-  const [processing, setProcessing] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
     return window.echoflow.onOverlayState((s) => {
-      setListening(s.listening)
-      setProcessing(s.processing)
+      if (s.listening) {
+        setLeaving(false)
+        setListening(true)
+        return
+      }
+      setListening(false)
+      if (s.dismissing) setLeaving(true)
     })
   }, [])
 
-  const motion = listening ? 'live' : processing ? 'busy' : ''
+  const motion = leaving ? 'leaving' : listening ? 'live' : ''
 
   return (
     <div className="overlay-root">

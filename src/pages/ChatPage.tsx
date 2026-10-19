@@ -5,16 +5,25 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const ready = useRef(false)
 
   useEffect(() => {
     void window.echoflow.getChatMessages().then(setMessages)
     const off = window.echoflow.onChatUpdated(setMessages)
+    inputRef.current?.focus({ preventScroll: true })
     return () => off()
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const thread = threadRef.current
+    if (!thread) return
+    if (!ready.current) {
+      ready.current = true
+      return
+    }
+    thread.scrollTop = thread.scrollHeight
   }, [messages])
 
   const send = async (e?: FormEvent) => {
@@ -40,7 +49,7 @@ export function ChatPage() {
       </p>
 
       <div className="panel chat-panel">
-        <div className="chat-thread" role="log" aria-live="polite">
+        <div className="chat-thread" ref={threadRef} role="log" aria-live="polite">
           {messages.length === 0 && (
             <div className="chat-empty">
               <p>No messages yet.</p>
@@ -58,16 +67,15 @@ export function ChatPage() {
               <div className="chat-text">{m.text}</div>
             </div>
           ))}
-          <div ref={bottomRef} />
         </div>
 
         <form className="composer" onSubmit={(e) => void send(e)}>
           <input
+            ref={inputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a reply"
             disabled={busy}
-            autoFocus
             aria-label="Message"
           />
           <button type="submit" className="composer-send" disabled={busy || !text.trim()}>

@@ -212,6 +212,7 @@ export interface EchoFlowApi {
       processing: boolean
       transcript: string
       status: string
+      dismissing?: boolean
     }) => void,
   ) => () => void
   onSessionResult: (cb: (result: SessionResult) => void) => () => void
