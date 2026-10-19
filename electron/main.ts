@@ -5,6 +5,7 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  Notification,
   screen,
   session,
   shell,
@@ -13,8 +14,8 @@ import {
 import path from 'node:path'
 import fs from 'node:fs'
 import { startPushToTalk } from './hotkeys'
-import { createOverlayWindow, registerOverlayIpc } from './overlay'
-import { createCaptureWindow } from './captureWindow'
+import { createOverlayWindow, registerOverlayIpc, ensureOverlayReady } from './overlay'
+import { createCaptureWindow, ensureCaptureVisible } from './captureWindow'
 import { shutdownNativeCapture } from './micCapture'
 import {
   beginListening,
@@ -22,6 +23,40 @@ import {
   registerVoiceIpc,
   setHubWindow,
 } from './voicePipeline'
+
+// Keep PTT + overlay alive when the hub is hidden in the tray.
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.echoflow.app')
+}
+
+type AppWithQuitFlag = typeof app & { isQuitting?: boolean }
+
+function isAppQuitting(): boolean {
+  return Boolean((app as AppWithQuitFlag).isQuitting)
+}
+
+function markAppQuitting(): void {
+  ;(app as AppWithQuitFlag).isQuitting = true
+}
+
+let trayHintShown = false
+
+function noteRunningInBackground(): void {
+  if (trayHintShown || !Notification.isSupported()) return
+  trayHintShown = true
+  new Notification({
+    title: 'EchoFlow is still running',
+    body: 'Hold Ctrl+Alt to speak. Open from the tray icon anytime.',
+  }).show()
+}
+
+function keepBackgroundAlive(): void {
+  ensureCaptureVisible()
+  ensureOverlayReady()
+}
 import {
   addHistory,
   clearHistory,
@@ -134,10 +169,12 @@ function createMainWindow(): BrowserWindow {
   })
 
   mainWindow.on('close', (e) => {
-    // Keep running in tray
-    if (!(app as typeof app & { isQuitting?: boolean }).isQuitting) {
+    // Close = hide to tray; Quit from the tray menu fully exits.
+    if (!isAppQuitting()) {
       e.preventDefault()
       mainWindow?.hide()
+      keepBackgroundAlive()
+      noteRunningInBackground()
     }
   })
 
@@ -188,12 +225,16 @@ function createTray(): void {
     {
       label: 'Quit',
       click: () => {
-        ;(app as typeof app & { isQuitting?: boolean }).isQuitting = true
+        markAppQuitting()
         app.quit()
       },
     },
   ])
   tray.setContextMenu(contextMenu)
+  tray.on('click', () => {
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
   tray.on('double-click', () => {
     mainWindow?.show()
     mainWindow?.focus()
@@ -295,7 +336,10 @@ app.whenReady().then(() => {
   try {
     stopHotkeys = startPushToTalk({
       emit: (event) => {
-        if (event === 'ptt-down') void beginListening()
+        if (event === 'ptt-down') {
+          keepBackgroundAlive()
+          void beginListening()
+        }
         if (event === 'ptt-up') void endListening()
         return true
       },
@@ -303,6 +347,8 @@ app.whenReady().then(() => {
   } catch (err) {
     console.error('Failed to start global hotkeys:', err)
   }
+
+  keepBackgroundAlive()
 
   const settings = getSettings()
   app.setLoginItemSettings({
@@ -312,11 +358,11 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  // Stay alive for tray + hotkeys on Windows
+  // Stay alive for tray + hotkeys — never quit when the hub is only hidden.
 })
 
 app.on('before-quit', () => {
-  ;(app as typeof app & { isQuitting?: boolean }).isQuitting = true
+  markAppQuitting()
   stopHotkeys?.()
   shutdownNativeCapture()
 })

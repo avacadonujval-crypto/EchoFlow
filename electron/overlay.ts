@@ -63,13 +63,25 @@ export function createOverlayWindow(): BrowserWindow {
 
 let dismissTimer: ReturnType<typeof setTimeout> | null = null
 
+/** Keep the overlay BrowserWindow alive (hidden) while the hub is in the tray. */
+export function ensureOverlayReady(): void {
+  createOverlayWindow()
+}
+
 export function showOverlay(): void {
   if (dismissTimer) {
     clearTimeout(dismissTimer)
     dismissTimer = null
   }
   const win = createOverlayWindow()
-  if (!win.isVisible()) win.showInactive()
+  // Re-assert z-order every show — Windows drops always-on-top after the
+  // hub is hidden and another app takes focus.
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // Prefer show() over showInactive(): with the hub hidden, showInactive
+  // often never paints a transparent skipTaskbar window.
+  win.show()
+  win.moveTop()
 }
 
 export function hideOverlay(): void {

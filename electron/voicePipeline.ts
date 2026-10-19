@@ -136,7 +136,7 @@ function noteNoAudio(): void {
 }
 
 export async function beginListening(): Promise<void> {
-  if (listening || handling) return
+  if (handling) return
   if (!speechOpen(spokenWordTotal(), getMembership().plan)) {
     noteWordLimit()
     return
@@ -145,9 +145,22 @@ export async function beginListening(): Promise<void> {
     noteSpeechSetup()
     return
   }
-  listening = true
 
   const settings = getSettings()
+  // Duplicate PTT-down (or a missed PTT-up): keep / restore the overlay.
+  if (listening) {
+    if (settings.showOverlay) showOverlay()
+    sendOverlayState({
+      listening: true,
+      processing: false,
+      transcript: '',
+      status: `Listening… hold ${PTT_LABEL}`,
+    })
+    return
+  }
+
+  listening = true
+
   if (settings.showOverlay) showOverlay()
 
   sendOverlayState({

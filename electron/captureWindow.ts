@@ -65,6 +65,14 @@ export function createCaptureWindow(): BrowserWindow {
   return captureWindow
 }
 
+/** Keep the capture window on-screen so mic + Chromium stay awake in tray mode. */
+export function ensureCaptureVisible(): void {
+  const win = createCaptureWindow()
+  if (win.isDestroyed()) return
+  win.setAlwaysOnTop(true, 'screen-saver')
+  if (!win.isVisible()) win.showInactive()
+}
+
 export function destroyCaptureWindow(): void {
   if (captureWindow && !captureWindow.isDestroyed()) {
     captureWindow.destroy()
