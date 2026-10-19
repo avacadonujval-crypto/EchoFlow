@@ -24,6 +24,10 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+      - name: Pack speech key for installer
+        env:
+          ECHOFLOW_GEMINI_API_KEY: ${{ secrets.ECHOFLOW_GEMINI_API_KEY }}
+        run: node scripts/ensure-pack-env.mjs
       - run: npx vite build
       - run: npx electron-builder --win --x64
         env:
