@@ -149,6 +149,22 @@ export function prepareTask(action: ParsedAction): {
     return { ready: { ...action, query: digits }, missing: [], question: null }
   }
 
+  if (action.action === 'system' && action.target === 'build') {
+    const brief = (action.responseText || '').trim()
+    const detail = brief
+      .replace(/^(?:please\s+)?(?:build|make|create)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?/i, '')
+      .replace(/^(?:website|site|web\s*app|webapp|landing\s+page|app)\b/i, '')
+      .replace(/^(?:for|about|called|named)\s+/i, '')
+      .trim()
+    if (detail.length < 3) {
+      return {
+        ready: action,
+        missing: ['message'],
+        question: 'What should the website be?',
+      }
+    }
+  }
+
   if (action.action === 'system' && action.target === 'notify' && !action.runAt) {
     return {
       ready: action,

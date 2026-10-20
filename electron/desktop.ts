@@ -3,6 +3,7 @@
  */
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { buildInStudio } from './studio'
 
 const execFileAsync = promisify(execFile)
 
@@ -153,6 +154,11 @@ Add-Type -Name EchoSleep -Namespace EchoFlow -MemberDefinition '[DllImport("Powr
     case 'open_phone':
       await ps('Start-Process "ms-phone:"')
       return 'Opened your phone'
+    case 'build': {
+      const brief = (text || query || '').trim()
+      if (!brief) throw new Error('Say what the website should be')
+      return buildInStudio(brief)
+    }
     default:
       return null
   }

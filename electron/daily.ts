@@ -156,6 +156,18 @@ export function matchDaily(raw: string, n: string): ParsedAction | null {
     })
   }
 
+  const build = raw.match(
+    /^(?:please\s+)?(?:build|make|create)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:website|site|web\s*app|webapp|landing\s+page|app)\b(?:\s+(.+))?$/i,
+  )
+  if (build) {
+    const extra = (build[1] ?? '').replace(/^(?:for|about|called|named)\s+/i, '').trim()
+    return action(raw, {
+      action: 'system',
+      target: 'build',
+      responseText: extra ? raw.trim() : '',
+    })
+  }
+
   const note = raw.match(/^(?:take|make|write)\s+(?:a\s+)?note(?:\s+(?:saying|that says))?\s+(.+)$/i)
   if (note?.[1]) {
     return action(raw, {
