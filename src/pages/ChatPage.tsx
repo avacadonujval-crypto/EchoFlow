@@ -5,13 +5,21 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [question, setQuestion] = useState<string | null>(null)
   const threadRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const ready = useRef(false)
 
   useEffect(() => {
-    void window.echoflow.getChatMessages().then(setMessages)
-    const off = window.echoflow.onChatUpdated(setMessages)
+    const load = () => {
+      void window.echoflow.getChatMessages().then(setMessages)
+      void window.echoflow.getPendingQuestion().then(setQuestion)
+    }
+    load()
+    const off = window.echoflow.onChatUpdated((next) => {
+      setMessages(next)
+      void window.echoflow.getPendingQuestion().then(setQuestion)
+    })
     inputRef.current?.focus({ preventScroll: true })
     return () => off()
   }, [])
@@ -44,8 +52,7 @@ export function ChatPage() {
       <p className="eyebrow">Chat</p>
       <h1 className="page-title">Chat</h1>
       <p className="page-lead">
-        When EchoFlow needs a detail — like which mail app to use, or someone's email address —
-        it asks here. Type your answer and it continues the task.
+        If a name or detail isn't clear, EchoFlow asks here. Answer with Ctrl+Alt, or type below.
       </p>
 
       <div className="panel chat-panel">
@@ -69,35 +76,42 @@ export function ChatPage() {
           ))}
         </div>
 
-        <form className="composer" onSubmit={(e) => void send(e)}>
-          <input
-            ref={inputRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Type a reply"
-            disabled={busy}
-            aria-label="Message"
-          />
-          <button type="submit" className="composer-send" disabled={busy || !text.trim()}>
-            {busy ? 'Sending' : 'Send'}
-          </button>
-        </form>
-
-        <div className="row" style={{ marginTop: 12, gap: 8 }}>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => void window.echoflow.cancelClarify()}
-          >
-            Cancel question
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => void window.echoflow.clearChat().then(setMessages)}
-          >
-            Clear chat
-          </button>
+        <div className="chat-dock">
+          {question && <p className="chat-ask">{question}</p>}
+          <form className="composer" onSubmit={(e) => void send(e)}>
+            <input
+              ref={inputRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={question ? 'Answer with Ctrl+Alt, or type here' : 'Type a reply'}
+              disabled={busy}
+              aria-label="Message"
+            />
+            <button type="submit" className="composer-send" disabled={busy || !text.trim()}>
+              {busy ? 'Sending' : 'Send'}
+            </button>
+          </form>
+          <div className="row chat-dock-actions">
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => void window.echoflow.cancelClarify().then(() => setQuestion(null))}
+            >
+              Cancel question
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() =>
+                void window.echoflow.clearChat().then((next) => {
+                  setMessages(next)
+                  setQuestion(null)
+                })
+              }
+            >
+              Clear chat
+            </button>
+          </div>
         </div>
       </div>
     </div>

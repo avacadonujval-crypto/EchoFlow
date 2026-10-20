@@ -7,6 +7,8 @@ import type {
   HistoryEntry,
   Macro,
   Membership,
+  SavedContact,
+  ScheduledTask,
   Snippet,
   VoiceProfile,
   VoiceStudio,
@@ -25,6 +27,8 @@ interface StoreSchema {
   profiles: VoiceProfile[]
   activeProfileId: string
   membership: Membership
+  contacts: SavedContact[]
+  scheduled: ScheduledTask[]
 }
 
 const EMPTY_MEMBERSHIP: Membership = {
@@ -60,6 +64,8 @@ const store = new StoreCtor({
     profiles: [],
     activeProfileId: '',
     membership: EMPTY_MEMBERSHIP,
+    contacts: [],
+    scheduled: [],
   },
 }) as unknown as Store<StoreSchema>
 
@@ -343,4 +349,24 @@ export function disconnectApp(appId: string): ConnectedApp[] {
   const apps = getConnectedApps().filter((a) => a.appId !== appId)
   store.set('connectedApps', apps)
   return apps
+}
+
+export function getContacts(): SavedContact[] {
+  return store.get('contacts') ?? []
+}
+
+export function saveContact(contact: SavedContact): SavedContact[] {
+  const contacts = getContacts().filter((item) => item.id !== contact.id)
+  contacts.push(contact)
+  store.set('contacts', contacts)
+  return contacts
+}
+
+export function getScheduledTasks(): ScheduledTask[] {
+  return store.get('scheduled') ?? []
+}
+
+export function setScheduledTasks(tasks: ScheduledTask[]): ScheduledTask[] {
+  store.set('scheduled', tasks)
+  return tasks
 }

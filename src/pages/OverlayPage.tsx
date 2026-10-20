@@ -3,20 +3,36 @@ import { useEffect, useState } from 'react'
 export function OverlayPage() {
   const [listening, setListening] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [question, setQuestion] = useState('')
 
   useEffect(() => {
     return window.echoflow.onOverlayState((s) => {
       if (s.listening) {
+        setQuestion('')
         setLeaving(false)
         setListening(true)
         return
       }
       setListening(false)
+      if (s.question) {
+        setLeaving(false)
+        setQuestion(s.question)
+        return
+      }
       if (s.dismissing) setLeaving(true)
     })
   }, [])
 
   const motion = leaving ? 'leaving' : listening ? 'live' : ''
+
+  if (question) {
+    return (
+      <div className="overlay-root overlay-ask">
+        <p className="overlay-question">{question}</p>
+        <p className="overlay-hint">Hold Ctrl+Alt to answer, or type it in Chat</p>
+      </div>
+    )
+  }
 
   return (
     <div className="overlay-root">

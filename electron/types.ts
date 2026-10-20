@@ -20,6 +20,8 @@ export type {
   BillingCadence,
   VoiceProfile,
   VoiceStudio,
+  SavedContact,
+  ScheduledTask,
 } from '../shared/types'
 
 export { DEFAULT_SETTINGS } from '../shared/types'

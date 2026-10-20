@@ -1205,6 +1205,57 @@ body:has(.overlay-root),
 .chat-page {
   display: flex;
   flex-direction: column;
+  padding-bottom: 168px;
+}
+
+.chat-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 92px;
+  z-index: 24;
+  width: min(860px, calc(100% - 64px));
+  transform: translateX(-50%);
+  padding: 12px 0 0;
+  background: linear-gradient(to top, #ffffff 70%, rgba(255, 255, 255, 0));
+}
+
+.chat-ask {
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #111111;
+  color: #ffffff;
+  line-height: 1.4;
+}
+
+.chat-dock-actions {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.overlay-ask {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.overlay-question {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.overlay-hint {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .chat-panel {

@@ -37,6 +37,8 @@ export interface ParsedAction {
   subject?: string
   /** Press Enter after typing (user said "and send it"). */
   submit?: boolean
+  /** Epoch ms. When set and still in the future, EchoFlow runs the action then. */
+  runAt?: number
   /** Chrome profile directory for signed-in web tasks (Default, Profile 1…). */
   chromeProfile?: string
   steps?: ParsedAction[]
@@ -130,6 +132,23 @@ export interface OverlayState {
   processing: boolean
   transcript: string
   status: string
+  dismissing?: boolean
+  question?: string
+}
+
+export interface SavedContact {
+  id: string
+  name: string
+  app: string
+  createdAt: number
+}
+
+export interface ScheduledTask {
+  id: string
+  runAt: number
+  label: string
+  action: ParsedAction
+  createdAt: number
 }
 
 export interface SessionResult {
@@ -204,16 +223,11 @@ export interface EchoFlowApi {
   getChatMessages: () => Promise<ChatMessage[]>
   clearChat: () => Promise<ChatMessage[]>
   cancelClarify: () => Promise<void>
+  getPendingQuestion: () => Promise<string | null>
   onVoiceStart: (cb: () => void) => () => void
   onVoiceStop: (cb: () => void) => () => void
   onOverlayState: (
-    cb: (state: {
-      listening: boolean
-      processing: boolean
-      transcript: string
-      status: string
-      dismissing?: boolean
-    }) => void,
+    cb: (state: OverlayState) => void,
   ) => () => void
   onSessionResult: (cb: (result: SessionResult) => void) => () => void
   onHistoryUpdated: (cb: () => void) => () => void

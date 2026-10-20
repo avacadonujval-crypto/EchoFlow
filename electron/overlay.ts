@@ -74,6 +74,7 @@ export function showOverlay(): void {
     dismissTimer = null
   }
   const win = createOverlayWindow()
+  placeOverlay(LISTEN_SIZE.width, LISTEN_SIZE.height)
   // Re-assert z-order every show — Windows drops always-on-top after the
   // hub is hidden and another app takes focus.
   win.setAlwaysOnTop(true, 'screen-saver')
@@ -82,6 +83,27 @@ export function showOverlay(): void {
   // often never paints a transparent skipTaskbar window.
   win.show()
   win.moveTop()
+}
+
+/** Question at the bottom of the screen when the hub is hidden. */
+export function showAskOverlay(question: string): void {
+  if (dismissTimer) {
+    clearTimeout(dismissTimer)
+    dismissTimer = null
+  }
+  const win = createOverlayWindow()
+  placeOverlay(ASK_SIZE.width, ASK_SIZE.height)
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.show()
+  win.moveTop()
+  sendOverlayState({
+    listening: false,
+    processing: false,
+    transcript: '',
+    status: 'Hold Ctrl+Alt to answer',
+    question,
+  })
 }
 
 export function hideOverlay(): void {
@@ -116,12 +138,24 @@ export function dismissOverlay(): void {
   }, 340)
 }
 
+const LISTEN_SIZE = { width: 118, height: 58 }
+const ASK_SIZE = { width: 460, height: 148 }
+
+function placeOverlay(width: number, height: number): void {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return
+  const display = screen.getPrimaryDisplay()
+  const x = Math.round(display.workArea.x + (display.workArea.width - width) / 2)
+  const y = Math.round(display.workArea.y + display.workArea.height - height - 36)
+  overlayWindow.setBounds({ x, y, width, height })
+}
+
 export function sendOverlayState(state: {
   listening: boolean
   processing: boolean
   transcript: string
   status: string
   dismissing?: boolean
+  question?: string
 }): void {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send('overlay:state', state)

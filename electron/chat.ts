@@ -8,7 +8,9 @@ export interface PendingClarify {
   /** Incomplete action we're trying to finish (usually send_email). */
   draft: ParsedAction
   /** Which fields still need answers. */
-  missing: Array<'chromeAccount' | 'provider' | 'to' | 'body' | 'subject'>
+  missing: Array<
+    'chromeAccount' | 'provider' | 'to' | 'body' | 'subject' | 'contact' | 'message' | 'confirmContact'
+  >
   question: string
   createdAt: number
 }
@@ -102,4 +104,8 @@ export function setPendingMissing(missing: PendingClarify['missing']): void {
 
 export function clearPending(): void {
   pending = null
+}
+
+export function focusChat(): void {
+  navigate?.('/chat')
 }

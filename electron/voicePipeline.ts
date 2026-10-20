@@ -23,7 +23,7 @@ import {
   startNativeCapture,
   stopNativeCapture,
 } from './micCapture'
-import { dismissOverlay, hideOverlay, sendOverlayState, showOverlay } from './overlay'
+import { dismissOverlay, hideOverlay, sendOverlayState, showAskOverlay, showOverlay } from './overlay'
 import { PTT_LABEL } from './hotkeys'
 import { polishTranscript } from './transcriptPolish'
 import { isNonLatinScript } from './languages'
@@ -38,10 +38,14 @@ import {
   startClarify,
   clearChat,
   cancelClarify,
+  focusChat,
 } from './chat'
-import { mergeWebClarifyReply, prepareWebAction } from './webSessionPlan'
-import { actionNeedsChromeAccount } from './chromeProfiles'
+import type { PendingClarify } from './chat'
 import { applySendItToAction } from './sendIt'
+import { rememberContact } from './contacts'
+import { applySpokenSchedule, mergeTaskReply, prepareTask, scheduleLine } from './messagePlan'
+import { speak } from './speak'
+import { enqueueTask, startScheduler } from './scheduler'
 
 /** Customer-facing status. Internal service names stay in the log. */
 function publicError(err: unknown, fallback: string): string {
@@ -269,6 +273,51 @@ async function resolveAction(transcript: string): Promise<ParsedAction> {
   )
 }
 
+function hubOpen(): boolean {
+  return Boolean(hubWindow && !hubWindow.isDestroyed() && hubWindow.isVisible())
+}
+
+export function voiceBusy(): boolean {
+  return listening || handling
+}
+
+function askUser(
+  transcript: string,
+  draft: ParsedAction,
+  missing: PendingClarify['missing'],
+  question: string,
+  alreadyLogged: boolean,
+): void {
+  if (!alreadyLogged) pushUserMessage(transcript)
+  startClarify(draft, missing, question)
+  const spoken = question.split('\n')[0]
+  notifyHub('session:result', {
+    transcript,
+    action: {
+      action: 'clarify',
+      responseText: question,
+      source: 'local',
+      rawText: transcript,
+    },
+    result: { success: true, message: spoken },
+  })
+  if (Notification.isSupported()) {
+    new Notification({ title: 'EchoFlow needs a detail', body: spoken.slice(0, 180) }).show()
+  }
+  speak(spoken)
+  if (!hubOpen()) showAskOverlay(spoken)
+}
+
+export function startVoiceScheduler(): void {
+  startScheduler(async (action) => {
+    if (voiceBusy()) return null
+    const result = await executeAction(action, { autoPaste: getSettings().autoPaste })
+    pushAssistantMessage(result.message)
+    focusChat()
+    return result
+  })
+}
+
 export async function handleTranscript(transcript: string): Promise<void> {
   if (handling) return
   if (!speechOpen(spokenWordTotal(), getMembership().plan)) {
@@ -296,37 +345,17 @@ export async function handleTranscript(transcript: string): Promise<void> {
         if (pending.missing.length === 0) {
           clearPending()
           const resolveStart = Date.now()
-          action = await resolveAction(trimmed)
+          action = applySpokenSchedule(applySendItToAction(await resolveAction(trimmed), trimmed), trimmed)
           console.log(
             `[voice] resolve(after clarify) ${Date.now() - resolveStart}ms →`,
             action.action,
             action.target ?? action.query ?? '',
           )
         } else {
-          const merged = mergeWebClarifyReply(
-            pending.draft,
-            pending.missing,
-            trimmed,
-          )
-          const prepared = prepareWebAction(merged)
+          const merged = mergeTaskReply(pending.draft, pending.missing, trimmed)
+          const prepared = prepareTask(merged)
           if (prepared.missing.length && prepared.question) {
-            startClarify(prepared.ready, prepared.missing, prepared.question)
-            notifyHub('session:result', {
-              transcript: trimmed,
-              action: {
-                action: 'clarify',
-                responseText: prepared.question,
-                source: 'local',
-                rawText: trimmed,
-              },
-              result: { success: true, message: prepared.question },
-            })
-            if (Notification.isSupported()) {
-              new Notification({
-                title: 'EchoFlow needs a detail',
-                body: prepared.question.slice(0, 180),
-              }).show()
-            }
+            askUser(trimmed, prepared.ready, prepared.missing, prepared.question, true)
             return
           }
           action = prepared.ready
@@ -341,73 +370,67 @@ export async function handleTranscript(transcript: string): Promise<void> {
           action.target ?? action.query ?? '',
           `(${action.source})`,
         )
+        action = applySpokenSchedule(applySendItToAction(action, trimmed), trimmed)
       }
 
-      // Validate email / booking / signed-in web tasks — ask in Chat when needed
-      if (action.action === 'send_email' || actionNeedsChromeAccount(action)) {
-        if (!loggedToChat) {
-          pushUserMessage(trimmed)
-          loggedToChat = true
-        }
-        const prepared = prepareWebAction(action)
-        if (prepared.missing.length && prepared.question) {
-          startClarify(prepared.ready, prepared.missing, prepared.question)
-          notifyHub('session:result', {
-            transcript: trimmed,
-            action: {
-              action: 'clarify',
-              responseText: prepared.question,
-              source: action.source,
-              rawText: trimmed,
-            },
-            result: { success: true, message: prepared.question.split('\n')[0] },
-          })
-          if (Notification.isSupported()) {
-            new Notification({
-              title: 'EchoFlow needs a detail',
-              body: prepared.question.slice(0, 180),
-            }).show()
-          }
-          return
-        }
-        action = prepared.ready
-      }
-
-      // Planner asked a free-form clarifying question
-      if (action.action === 'clarify') {
-        if (!loggedToChat) {
-          pushUserMessage(trimmed)
-          loggedToChat = true
-        }
-        const q = action.responseText || 'Could you clarify that?'
-        startClarify(
-          {
-            action: 'unknown',
-            source: action.source,
-            rawText: trimmed,
-          },
+      if (action.action === 'unknown') {
+        askUser(
+          trimmed,
+          { action: 'unknown', source: action.source, rawText: trimmed },
           [],
-          q,
+          "I didn't catch that. What should I do?",
+          loggedToChat,
         )
+        return
+      }
+
+      if (action.action === 'clarify') {
+        askUser(
+          trimmed,
+          { action: 'unknown', source: action.source, rawText: trimmed },
+          [],
+          action.responseText || 'Could you clarify that?',
+          loggedToChat,
+        )
+        return
+      }
+
+      const prepared = prepareTask(action)
+      if (prepared.missing.length && prepared.question) {
+        askUser(trimmed, prepared.ready, prepared.missing, prepared.question, loggedToChat)
+        return
+      }
+      action = prepared.ready
+
+      if (action.runAt && action.runAt > Date.now() + 20_000) {
+        const line = scheduleLine(action)
+        enqueueTask(action, line)
+        if (!loggedToChat) pushUserMessage(trimmed)
+        pushAssistantMessage(line)
+        focusChat()
+        speak(line)
         notifyHub('session:result', {
           transcript: trimmed,
           action,
-          result: { success: true, message: q },
+          result: { success: true, message: line },
         })
         if (Notification.isSupported()) {
-          new Notification({
-            title: 'EchoFlow needs a detail',
-            body: q.slice(0, 180),
-          }).show()
+          new Notification({ title: 'EchoFlow', body: line.slice(0, 180) }).show()
         }
         return
       }
 
-      action = applySendItToAction(action, trimmed)
-
       const settings = getSettings()
       const result = await executeAction(action, { autoPaste: settings.autoPaste })
-      if (loggedToChat || action.action === 'reply' || action.action === 'send_email') {
+      if (result.success && action.action === 'send_message' && action.query) {
+        rememberContact(action.query, action.target || 'whatsapp')
+      }
+      if (
+        loggedToChat ||
+        action.action === 'reply' ||
+        action.action === 'send_email' ||
+        action.action === 'send_message'
+      ) {
         if (!loggedToChat) pushUserMessage(trimmed)
         pushAssistantMessage(result.message)
       }
@@ -447,6 +470,7 @@ export async function handleTranscript(transcript: string): Promise<void> {
 }
 
 export function registerVoiceIpc(): void {
+  startVoiceScheduler()
   // Warm up ffmpeg/device discovery so PTT starts instantly
   void initNativeCapture()
   // Index installed apps so "open <anything>" resolves instantly
@@ -505,8 +529,10 @@ export function registerVoiceIpc(): void {
 
   ipcMain.handle('chat:list', () => getChatMessages())
   ipcMain.handle('chat:clear', () => clearChat())
+  ipcMain.handle('chat:pending', () => getPendingClarify()?.question ?? null)
   ipcMain.handle('chat:cancel-clarify', () => {
     cancelClarify()
+    hideOverlay()
     pushSystemMessage('Cancelled the pending question.')
   })
 }

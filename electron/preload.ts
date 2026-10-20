@@ -33,6 +33,7 @@ const api: EchoFlowApi = {
   getChatMessages: () => ipcRenderer.invoke('chat:list'),
   clearChat: () => ipcRenderer.invoke('chat:clear'),
   cancelClarify: () => ipcRenderer.invoke('chat:cancel-clarify'),
+  getPendingQuestion: () => ipcRenderer.invoke('chat:pending'),
   onVoiceStart: (cb) => {
     const handler = () => cb()
     ipcRenderer.on('voice:start', handler)
