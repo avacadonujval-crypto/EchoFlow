@@ -39,6 +39,8 @@ export interface ParsedAction {
   submit?: boolean
   /** Epoch ms. When set and still in the future, EchoFlow runs the action then. */
   runAt?: number
+  /** User already confirmed a destructive step such as shut down. */
+  confirmed?: boolean
   /** Chrome profile directory for signed-in web tasks (Default, Profile 1…). */
   chromeProfile?: string
   steps?: ParsedAction[]

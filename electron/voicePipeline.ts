@@ -402,7 +402,7 @@ export async function handleTranscript(transcript: string): Promise<void> {
       }
       action = prepared.ready
 
-      if (action.runAt && action.runAt > Date.now() + 20_000) {
+      if (action.runAt && action.runAt > Date.now() + 3_000) {
         const line = scheduleLine(action)
         enqueueTask(action, line)
         if (!loggedToChat) pushUserMessage(trimmed)
@@ -448,7 +448,11 @@ export async function handleTranscript(transcript: string): Promise<void> {
       notifyHub('history:updated')
       notifyHub('session:result', { transcript: trimmed, action, result })
 
-      if (action.action === 'reply' || action.action === 'unknown') {
+      if (
+        action.action === 'reply' ||
+        action.action === 'unknown' ||
+        (action.action === 'system' && (action.target === 'notify' || action.target === 'battery'))
+      ) {
         if (Notification.isSupported()) {
           new Notification({
             title: 'EchoFlow',

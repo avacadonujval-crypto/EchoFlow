@@ -9,7 +9,16 @@ export interface PendingClarify {
   draft: ParsedAction
   /** Which fields still need answers. */
   missing: Array<
-    'chromeAccount' | 'provider' | 'to' | 'body' | 'subject' | 'contact' | 'message' | 'confirmContact'
+    | 'chromeAccount'
+    | 'provider'
+    | 'to'
+    | 'body'
+    | 'subject'
+    | 'contact'
+    | 'message'
+    | 'confirmContact'
+    | 'confirmAction'
+    | 'when'
   >
   question: string
   createdAt: number

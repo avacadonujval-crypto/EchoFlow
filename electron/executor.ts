@@ -10,6 +10,7 @@ import {
 } from './email'
 import { openInChromeProfile } from './chromeProfiles'
 import type { ParsedAction } from './types'
+import { runDesktopAction } from './desktop'
 
 const execFileAsync = promisify(execFile)
 
@@ -439,7 +440,9 @@ async function uninstallApp(name: string): Promise<string> {
   return `Couldn't match "${name}" to an installed package — opened Installed Apps settings`
 }
 
-async function systemAction(target: string): Promise<void> {
+async function systemAction(target: string, query?: string, text?: string): Promise<string> {
+  const desktop = await runDesktopAction(target, query, text)
+  if (desktop) return desktop
   switch (target) {
     case 'screenshot':
       // Win+Shift+S via keybd_event
@@ -466,7 +469,7 @@ public class K {
 [K]::Chord()
 `,
       ])
-      break
+      return 'Screenshot ready'
     case 'volume_up':
       await execFileAsync('powershell.exe', [
         '-NoProfile',
@@ -479,7 +482,7 @@ public class V { [DllImport("user32.dll")] public static extern void keybd_event
 1..4 | ForEach-Object { [V]::keybd_event(0xAF, 0, 0, [UIntPtr]::Zero); [V]::keybd_event(0xAF, 0, 2, [UIntPtr]::Zero) }
 `,
       ])
-      break
+      return 'Volume up'
     case 'volume_down':
       await execFileAsync('powershell.exe', [
         '-NoProfile',
@@ -492,7 +495,7 @@ public class V { [DllImport("user32.dll")] public static extern void keybd_event
 1..4 | ForEach-Object { [V]::keybd_event(0xAE, 0, 0, [UIntPtr]::Zero); [V]::keybd_event(0xAE, 0, 2, [UIntPtr]::Zero) }
 `,
       ])
-      break
+      return 'Volume down'
     case 'mute':
     case 'unmute':
       await execFileAsync('powershell.exe', [
@@ -506,10 +509,10 @@ public class V { [DllImport("user32.dll")] public static extern void keybd_event
 [V]::keybd_event(0xAD, 0, 0, [UIntPtr]::Zero); [V]::keybd_event(0xAD, 0, 2, [UIntPtr]::Zero)
 `,
       ])
-      break
+      return target === 'unmute' ? 'Unmuted' : 'Muted'
     case 'lock':
       await execFileAsync('rundll32.exe', ['user32.dll,LockWorkStation'])
-      break
+      return 'Locked'
     default:
       throw new Error(`Unknown system action: ${target}`)
   }
@@ -585,8 +588,10 @@ export async function executeAction(
       }
       case 'system':
         if (!action.target) throw new Error('No system target')
-        await systemAction(action.target)
-        return { success: true, message: `System: ${action.target}` }
+        return {
+          success: true,
+          message: await systemAction(action.target, action.query, action.responseText),
+        }
       case 'keys': {
         // Keyboard shortcut in the focused app (SendKeys syntax, e.g. "^s")
         if (!action.target) throw new Error('No key sequence')

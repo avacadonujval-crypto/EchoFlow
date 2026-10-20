@@ -52,11 +52,12 @@ export function parseWhen(text: string, now = Date.now()): SpokenWhen | null {
   const source = text.trim()
   if (!source) return null
 
-  const relative = /\bin\s+(\d+)\s*(minutes?|mins?|hours?|hrs?)\b/i.exec(source)
+  const relative = /\b(?:in|for)\s+(\d+)\s*(minutes?|mins?|hours?|hrs?|seconds?|secs?)\b/i.exec(source)
   if (relative) {
     const n = Number(relative[1])
-    const hours = /^h/i.test(relative[2])
-    const at = now + n * (hours ? 3_600_000 : 60_000)
+    const unit = relative[2].toLowerCase()
+    const ms = unit.startsWith('h') ? 3_600_000 : unit.startsWith('s') ? 1000 : 60_000
+    const at = now + n * ms
     return { at, phrase: relative[0] }
   }
 

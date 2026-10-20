@@ -1,5 +1,6 @@
 import type { CommandAlias, Macro, ParsedAction, Snippet } from '../types'
 import { parseSendIt } from '../sendIt'
+import { matchDaily } from '../daily'
 
 const APP_CATALOG: Array<{ names: string[]; target: string; kind: 'app' | 'url' }> = [
   { names: ['chrome', 'google chrome'], target: 'chrome', kind: 'app' },
@@ -19,6 +20,20 @@ const APP_CATALOG: Array<{ names: string[]; target: string; kind: 'app' | 'url' 
   { names: ['twitter', 'x'], target: 'https://x.com', kind: 'url' },
   { names: ['github'], target: 'https://github.com', kind: 'url' },
   { names: ['notion'], target: 'https://www.notion.so', kind: 'url' },
+  { names: ['word', 'microsoft word'], target: 'winword', kind: 'app' },
+  { names: ['excel', 'microsoft excel'], target: 'excel', kind: 'app' },
+  { names: ['powerpoint', 'power point'], target: 'powerpnt', kind: 'app' },
+  { names: ['outlook'], target: 'outlook', kind: 'app' },
+  { names: ['paint'], target: 'mspaint', kind: 'app' },
+  { names: ['photos'], target: 'ms-photos:', kind: 'url' },
+  { names: ['camera'], target: 'microsoft.windows.camera:', kind: 'url' },
+  { names: ['terminal', 'windows terminal'], target: 'wt', kind: 'app' },
+  { names: ['store', 'microsoft store'], target: 'ms-windows-store:', kind: 'url' },
+  { names: ['zoom'], target: 'zoom', kind: 'app' },
+  { names: ['netflix'], target: 'https://www.netflix.com', kind: 'url' },
+  { names: ['maps', 'google maps'], target: 'https://www.google.com/maps', kind: 'url' },
+  { names: ['whatsapp'], target: 'whatsapp', kind: 'app' },
+  { names: ['calendar'], target: 'outlookcal:', kind: 'url' },
 ]
 
 function normalize(text: string): string {
@@ -134,6 +149,22 @@ function looksLikeCommand(text: string): boolean {
     'message',
     'text',
     'reply to',
+    'pause',
+    'skip',
+    'brightness',
+    'wifi',
+    'remind',
+    'timer',
+    'call',
+    'shutdown',
+    'restart',
+    'sleep',
+    'weather',
+    'battery',
+    'minimize',
+    'maximize',
+    'directions',
+    'navigate',
   ]
   return starters.some((s) => n.startsWith(s) || n.includes(` ${s} `))
 }
@@ -338,6 +369,9 @@ export function matchLocalCommand(
       }
     }
   }
+
+  const daily = matchDaily(raw, n)
+  if (daily) return { action: daily, isDictation: false }
 
   // Open URL-ish
   const openMatch = n.match(/^(?:open|launch|start|go\s+to|goto|show|run)\s+(.+)/)

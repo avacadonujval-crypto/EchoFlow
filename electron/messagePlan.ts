@@ -117,6 +117,13 @@ export function mergeMessageReply(
   return next
 }
 
+const CONFIRM: Record<string, string> = {
+  shutdown: 'Shut down this PC? Say yes to confirm.',
+  restart: 'Restart this PC? Say yes to confirm.',
+  sign_out: 'Sign out? Say yes to confirm.',
+  empty_recycle: 'Empty the recycle bin? Say yes to confirm.',
+}
+
 export function prepareTask(action: ParsedAction): {
   ready: ParsedAction
   missing: PendingClarify['missing']
@@ -124,6 +131,32 @@ export function prepareTask(action: ParsedAction): {
 } {
   if (action.action === 'send_message') return prepareMessage(action)
   if (action.action === 'send_email' || actionNeedsChromeAccount(action)) return prepareWebAction(action)
+
+  if (action.action === 'system' && action.target && CONFIRM[action.target] && !action.confirmed) {
+    return { ready: action, missing: ['confirmAction'], question: CONFIRM[action.target] }
+  }
+
+  if (action.action === 'system' && action.target === 'call') {
+    const digits = (action.query ?? '').replace(/[^\d+]/g, '')
+    if (digits.length < 6) {
+      const who = action.query?.trim() || 'them'
+      return {
+        ready: action,
+        missing: ['contact'],
+        question: `What's the phone number for ${who}?`,
+      }
+    }
+    return { ready: { ...action, query: digits }, missing: [], question: null }
+  }
+
+  if (action.action === 'system' && action.target === 'notify' && !action.runAt) {
+    return {
+      ready: action,
+      missing: ['when'],
+      question: 'When should I remind you?',
+    }
+  }
+
   return { ready: action, missing: [], question: null }
 }
 
@@ -133,6 +166,15 @@ export function mergeTaskReply(
   reply: string,
 ): ParsedAction {
   const need = missing[0]
+  if (need === 'confirmAction') {
+    if (isYes(reply)) return { ...draft, confirmed: true }
+    return { ...draft, action: 'reply', responseText: 'Cancelled.', confirmed: true }
+  }
+  if (need === 'when') {
+    const hit = parseWhen(reply)
+    if (!hit) return draft
+    return { ...draft, runAt: hit.at }
+  }
   if (need === 'contact' || need === 'message' || need === 'confirmContact') {
     return mergeMessageReply(draft, missing, reply)
   }
@@ -152,6 +194,10 @@ export function scheduleLine(action: ParsedAction): string {
   if (action.action === 'send_email') {
     const who = action.query || 'them'
     return when ? `I'll email ${who} at ${when}.` : `Sending the email to ${who}.`
+  }
+  if (action.action === 'system' && action.target === 'notify') {
+    const what = action.responseText || 'Reminder'
+    return when ? `I'll remind you at ${when}: ${what}.` : what
   }
   return when ? `I'll do that at ${when}.` : 'Doing that now.'
 }
