@@ -211,7 +211,9 @@ export function matchLocalCommand(
     // Normalize capture order: app / contact / message
     const apps = CHAT_APPS.split('|')
     const app = apps.includes(sendMsg[1]) ? sendMsg[1] : sendMsg[2]
-    const contact = apps.includes(sendMsg[1]) ? sendMsg[2] : sendMsg[1]
+    const contact =
+      raw.match(/message\s+to\s+(.+?)\s+(?:saying|say)/i)?.[1]?.trim() ??
+      (apps.includes(sendMsg[1]) ? sendMsg[2] : sendMsg[1])
     const msgRaw =
       raw.match(/(?:saying|that says|say(?:ing)?|telling(?:\s+(?:him|her|them))?)\s+(.+)$/i)?.[1]?.trim() ??
       sendMsg[3].trim()
@@ -242,7 +244,7 @@ export function matchLocalCommand(
       action: {
         action: 'send_message',
         target: 'whatsapp',
-        query: sendMsgDefault[1].trim(),
+        query: raw.match(/message\s+to\s+(.+?)\s+(?:saying|say)/i)?.[1]?.trim() ?? sendMsgDefault[1].trim(),
         responseText: msg.text,
         submit: msg.submit || undefined,
         source: 'local',
